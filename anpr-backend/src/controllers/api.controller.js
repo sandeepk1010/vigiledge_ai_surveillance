@@ -1,4 +1,4 @@
-const pool = require("../config/db");
+const { pool } = require("../config/db");
 
 async function getDetections(req, res) {
   try {
@@ -43,4 +43,23 @@ async function getDetections(req, res) {
   }
 }
 
-module.exports = { getDetections };
+async function getStats(req, res) {
+  try {
+    const result = await pool.query(`
+      SELECT
+        COALESCE(camera_name, 'unknown') AS camera,
+        COUNT(*)::int AS total,
+        SUM((created_at::date = CURRENT_DATE)::int)::int AS today
+      FROM vehicle_detections
+      GROUP BY camera_name
+      ORDER BY total DESC
+    `);
+
+    res.json(result.rows.map(r => ({ camera: r.camera, total: r.total, today: r.today })));
+  } catch (err) {
+    console.error("API STATS ERROR:", err);
+    res.status(500).json({ error: err.message });
+  }
+}
+
+module.exports = { getDetections, getStats };

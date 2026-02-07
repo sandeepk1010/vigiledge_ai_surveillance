@@ -1,6 +1,6 @@
-const pool = require("../config/db");
+const { pool } = require("../config/db");
 const { saveImage } = require("../services/image.service");
-const { log } = require("../utils/logger");
+const { log, recordDetection } = require("../utils/logger");
 
 async function handleWebhook(req, res) {
   try {
@@ -57,7 +57,8 @@ async function handleWebhook(req, res) {
       }
     }
 
-    log(camera, `✅ Saved detection ${plate} (ID ${detectionId})`);
+    // record detection: logs and increments per-camera daily count
+    recordDetection(camera, `${plate} (ID ${detectionId})`);
 
     res.json({
       status: "success",
