@@ -12,5 +12,6 @@ app.use(express.json({ limit: "50mb" }));
 app.use(require("./routes/health.routes"));
 app.use(require("./routes/webhook.routes"));
 app.use(require("./routes/api.routes"));   
+app.use(require("./routes/dashboard.routes"));
 
 module.exports = app;

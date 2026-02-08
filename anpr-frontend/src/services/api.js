@@ -1,7 +1,21 @@
-const API = "http://localhost:5000";
+const API = "http://localhost:5000/api";
 
-export const getDetections = () =>
-  fetch(`${API}/api/detections`).then(res => res.json());
+export const getLive = async () => {
+  const r = await fetch(`${API}/live`);
+  return r.json();
+};
 
-export const getDailyStats = () =>
-  fetch(`${API}/api/detections/daily`).then(res => res.json());
+export const getStats = async () => {
+  const r = await fetch(`${API}/dashboard`);
+  return r.json();
+};
+
+export const getDetections = async () => {
+  const r = await fetch(`${API}/detections`);
+  return r.json();
+};
+
+export const getDailyStats = async () => {
+  const r = await fetch(`${API}/daily`);
+  return r.json();
+};
