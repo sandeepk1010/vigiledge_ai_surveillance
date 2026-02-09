@@ -1,21 +1,23 @@
-const API = "http://localhost:5000/api";
+const API = "http://localhost:5000";
 
-export const getLive = async () => {
-  const r = await fetch(`${API}/live`);
-  return r.json();
-};
+export async function getLive() {
+  const res = await fetch(API + "/api/live");
+  return res.json();
+}
 
-export const getStats = async () => {
-  const r = await fetch(`${API}/dashboard`);
-  return r.json();
-};
+export async function getStats() {
+  const res = await fetch(API + "/api/stats");
+  return res.json();
+}
 
 export const getDetections = async () => {
-  const r = await fetch(`${API}/detections`);
-  return r.json();
+  const res = await fetch(
+    `http://localhost:5000/api/detections?nocache=${Date.now()}`
+  );
+  return res.json();
 };
 
-export const getDailyStats = async () => {
-  const r = await fetch(`${API}/daily`);
-  return r.json();
-};
+
+
+
+

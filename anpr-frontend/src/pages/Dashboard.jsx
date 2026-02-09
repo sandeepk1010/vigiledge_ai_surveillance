@@ -1,66 +1,64 @@
 import { useEffect, useState } from "react";
-import { getStats, getLive } from "../services/api";
 
-export default function Dashboard() {
-  const [stats, setStats] = useState({ total_in: 0, total_out: 0 });
-  const [live, setLive] = useState([]);
+function Dashboard() {
+  const [data, setData] = useState([]);
 
-  useEffect(() => {
-    load();
-    const t = setInterval(load, 3000);
-    return () => clearInterval(t);
-  }, []);
-
-  const load = async () => {
+  const fetchData = async () => {
     try {
-      const s = await getStats();
-      const l = await getLive();
-
-      setStats(s || { total_in: 0, total_out: 0 });
-      setLive(Array.isArray(l) ? l : []);
+      const res = await fetch("http://192.168.1.120:5000/api/detections");
+      const json = await res.json();
+      setData(json);
     } catch (err) {
-      console.error(err);
+      console.error("FETCH ERROR:", err);
     }
   };
 
+  useEffect(() => {
+    fetchData();
+    const interval = setInterval(fetchData, 2000);
+    return () => clearInterval(interval);
+  }, []);
+
   return (
     <div style={{ padding: 20 }}>
-      <h1>ANPR Dashboard</h1>
+      <h2>🚗 Live ANPR</h2>
 
-      <div style={{ display: "flex", gap: 20 }}>
-        <div>IN Today: {stats.total_in}</div>
-        <div>OUT Today: {stats.total_out}</div>
-        <div>Inside: {stats.total_in - stats.total_out}</div>
-      </div>
-
-      <h2>Live Vehicles</h2>
-
-      <table border="1">
+      <table border="1" cellPadding="10">
         <thead>
           <tr>
+            <th>ID</th>
             <th>Plate</th>
             <th>Camera</th>
-            <th>Type</th>
             <th>Time</th>
+            <th>Image</th>
           </tr>
         </thead>
+
         <tbody>
-          {live.length === 0 ? (
-            <tr>
-              <td colSpan="4">No data</td>
+          {data.map((d) => (
+            <tr key={d.id}>
+              <td>{d.id}</td>
+              <td>{d.plate}</td>
+              <td>{d.camera_name}</td>
+              <td>{new Date(d.created_at).toLocaleString()}</td>
+
+              <td>
+                {d.image_path ? (
+                  <img
+                    src={`http://192.168.1.120:5000/${d.image_path}`}
+                    width="120"
+                    alt="car"
+                  />
+                ) : (
+                  "No image"
+                )}
+              </td>
             </tr>
-          ) : (
-            live.map((l, i) => (
-              <tr key={i}>
-                <td>{l.plate_number}</td>
-                <td>{l.name}</td>
-                <td>{l.type}</td>
-                <td>{new Date(l.detected_at).toLocaleTimeString()}</td>
-              </tr>
-            ))
-          )}
+          ))}
         </tbody>
       </table>
     </div>
   );
 }
+
+export default Dashboard;
