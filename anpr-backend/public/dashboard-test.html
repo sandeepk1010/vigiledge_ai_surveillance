@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>ANPR Dashboard Test</title>
+    <style>
+        body { font-family: Arial; margin: 20px; }
+        table { border-collapse: collapse; width: 100%; }
+        th, td { border: 1px solid #ddd; padding: 10px; text-align: left; }
+        th { background: #f2f2f2; }
+        img { max-width: 150px; border-radius: 5px; }
+        .error { color: red; padding: 10px; background: #ffcccc; }
+        .success { color: green; padding: 10px; background: #ccffcc; }
+    </style>
+</head>
+<body>
+    <h1>ANPR Dashboard - Live Test</h1>
+    <div id="status"></div>
+    <div id="cameras"></div>
+    <table id="detections">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Plate</th>
+                <th>Camera</th>
+                <th>Detected At</th>
+                <th>Images</th>
+            </tr>
+        </thead>
+        <tbody id="tbody">
+        </tbody>
+    </table>
+
+    <script>
+        const API = "http://localhost:5000";
+        let refreshCount = 0;
+
+        async function fetchData() {
+            refreshCount++;
+            const statusDiv = document.getElementById("status");
+            
+            try {
+                console.log(`[${refreshCount}] Fetching detections...`);
+                const res = await fetch(API + "/api/detections?page=1&limit=20");
+                const json = await res.json();
+                
+                if (!json.data) {
+                    statusDiv.innerHTML = `<div class="error">Error: No data field in response</div>`;
+                    console.error("Response:", json);
+                    return;
+                }
+
+                statusDiv.innerHTML = `<div class="success">✅ Updated ${new Date().toLocaleTimeString()} (${refreshCount}x) - ${json.data.length} detections</div>`;
+
+                const tbody = document.getElementById("tbody");
+                tbody.innerHTML = "";
+
+                json.data.forEach(d => {
+                    const row = tbody.insertRow();
+                    row.innerHTML = `
+                        <td>${d.id}</td>
+                        <td><strong>${d.plate}</strong></td>
+                        <td>${d.camera}</td>
+                        <td>${new Date(d.detected_at).toLocaleString()}</td>
+                        <td>
+                            ${d.images && Object.keys(d.images).length > 0
+                                ? Object.values(d.images).slice(0, 1).map(img => 
+                                    `<img src="${API}${img}" onerror="this.src='data:image/svg+xml,%3Csvg%3E%3C/svg%3E'" />`
+                                ).join("")
+                                : "No image"
+                            }
+                        </td>
+                    `;
+                });
+            } catch (err) {
+                statusDiv.innerHTML = `<div class="error">❌ Error: ${err.message}</div>`;
+                console.error("Fetch error:", err);
+            }
+        }
+
+        // Fetch immediately and every 2 seconds
+        fetchData();
+        setInterval(fetchData, 2000);
+    </script>
+</body>
+</html>

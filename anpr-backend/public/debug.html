@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>ANPR Debug - Check Live Data</title>
+    <style>
+        body { font-family: monospace; margin: 20px; background: #1e1e1e; color: #d4d4d4; }
+        .section { margin: 20px 0; padding: 15px; background: #252526; border-radius: 5px; }
+        .success { color: #4ec9b0; }
+        .error { color: #f48771; }
+        .warning { color: #dcdcaa; }
+        h1 { color: #4fc1ff; }
+        h2 { color: #c586c0; }
+        pre { background: #1e1e1e; padding: 10px; overflow-x: auto; border-radius: 3px; }
+        .btn { background: #0e639c; color: white; border: none; padding: 10px 20px; cursor: pointer; border-radius: 3px; margin: 5px; }
+        .btn:hover { background: #1177bb; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th, td { text-align: left; padding: 8px; border: 1px solid #3e3e42; }
+        th { background: #37373d; }
+    </style>
+</head>
+<body>
+    <h1>🔍 ANPR System Debug Console</h1>
+    
+    <div class="section">
+        <h2>📊 Quick Stats</h2>
+        <div id="stats">Loading...</div>
+    </div>
+
+    <div class="section">
+        <h2>🔴 Latest API Response (Raw)</h2>
+        <button class="btn" onclick="refreshData()">🔄 Refresh Now</button>
+        <button class="btn" onclick="clearConsole()">🗑️ Clear Console</button>
+        <pre id="raw-response">Fetching...</pre>
+    </div>
+
+    <div class="section">
+        <h2>📋 Detections Table</h2>
+        <div id="last-update" style="margin-bottom: 10px;"></div>
+        <table>
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Plate</th>
+                    <th>Camera</th>
+                    <th>Detected At</th>
+                    <th>Has Images</th>
+                </tr>
+            </thead>
+            <tbody id="detections-table">
+            </tbody>
+        </table>
+    </div>
+
+    <div class="section">
+        <h2>📹 Camera Status</h2>
+        <div id="cameras">Loading...</div>
+    </div>
+
+    <div class="section">
+        <h2>🔧 Debug Console Log</h2>
+        <pre id="console-log" style="height: 200px; overflow-y: auto;"></pre>
+    </div>
+
+    <script>
+        const API = "http://localhost:5000";
+        let consoleLog = [];
+        let refreshCount = 0;
+
+        function log(message) {
+            const timestamp = new Date().toLocaleTimeString();
+            consoleLog.push(`[${timestamp}] ${message}`);
+            if (consoleLog.length > 50) consoleLog.shift();
+            document.getElementById("console-log").textContent = consoleLog.join("\n");
+            console.log(message);
+        }
+
+        function clearConsole() {
+            consoleLog = [];
+            document.getElementById("console-log").textContent = "";
+        }
+
+        async function fetchCameras() {
+            try {
+                const res = await fetch(API + "/api/cameras");
+                const cameras = await res.json();
+                log(`✅ Fetched ${cameras.length} cameras`);
+                
+                const html = cameras.map(cam => 
+                    `<div style="padding: 10px; margin: 5px 0; background: #37373d; border-radius: 3px;">
+                        <strong>${cam.name}</strong> - IP: ${cam.ip || "Not configured"}
+                    </div>`
+                ).join("");
+                
+                document.getElementById("cameras").innerHTML = html || "<span class='warning'>No cameras found</span>";
+            } catch (err) {
+                log(`❌ Camera fetch error: ${err.message}`);
+                document.getElementById("cameras").innerHTML = `<span class='error'>${err.message}</span>`;
+            }
+        }
+
+        async function refreshData() {
+            refreshCount++;
+            log(`\n🔄 Refresh #${refreshCount} started`);
+            
+            try {
+                const url = API + "/api/detections?page=1&limit=10";
+                log(`📡 Fetching: ${url}`);
+                
+                const res = await fetch(url);
+                const json = await res.json();
+                
+                log(`✅ Response status: ${res.status}`);
+                log(`📦 Response keys: ${Object.keys(json).join(", ")}`);
+                
+                // Display raw response
+                document.getElementById("raw-response").textContent = JSON.stringify(json, null, 2);
+                
+                // Update stats
+                const statsHtml = `
+                    <div>
+                        <p><span class="success">✅ Total Detections:</span> ${json.pagination?.total || 0}</p>
+                        <p><span class="success">✅ Current Page:</span> ${json.pagination?.page || 1} of ${json.pagination?.totalPages || 0}</p>
+                        <p><span class="success">✅ Items on this page:</span> ${json.data?.length || 0}</p>
+                        <p><span class="warning">⏱️ Last Updated:</span> ${new Date().toLocaleString()}</p>
+                        <p><span class="warning">🔄 Refresh Count:</span> ${refreshCount}</p>
+                    </div>
+                `;
+                document.getElementById("stats").innerHTML = statsHtml;
+                
+                // Update table
+                if (json.data && json.data.length > 0) {
+                    const tableRows = json.data.map(d => {
+                        const hasImages = d.images && Object.keys(d.images).length > 0;
+                        const imageCount = hasImages ? Object.keys(d.images).length : 0;
+                        return `
+                            <tr>
+                                <td>${d.id}</td>
+                                <td><strong>${d.plate}</strong></td>
+                                <td>${d.camera}</td>
+                                <td>${new Date(d.detected_at).toLocaleString()}</td>
+                                <td>${hasImages ? `✅ Yes (${imageCount})` : "❌ No"}</td>
+                            </tr>
+                        `;
+                    }).join("");
+                    document.getElementById("detections-table").innerHTML = tableRows;
+                    log(`✅ Displayed ${json.data.length} detections in table`);
+                } else {
+                    document.getElementById("detections-table").innerHTML = 
+                        '<tr><td colspan="5" style="text-align: center;" class="warning">No detections found</td></tr>';
+                    log(`⚠️ No detections in response`);
+                }
+                
+                document.getElementById("last-update").innerHTML = 
+                    `<span class="success">Last updated: ${new Date().toLocaleTimeString()}</span>`;
+                
+            } catch (err) {
+                log(`❌ Fetch error: ${err.message}`);
+                document.getElementById("raw-response").textContent = `ERROR: ${err.message}`;
+                document.getElementById("stats").innerHTML = `<span class='error'>❌ API Error: ${err.message}</span>`;
+            }
+        }
+
+        // Initial load
+        log("🚀 Debug console initialized");
+        fetchCameras();
+        refreshData();
+        
+        // Auto-refresh every 3 seconds
+        setInterval(() => {
+            log("⏰ Auto-refresh triggered");
+            refreshData();
+        }, 3000);
+    </script>
+</body>
+</html>

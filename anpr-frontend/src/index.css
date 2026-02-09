@@ -1,8 +1,11 @@
+@import url("https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap");
+
 /* ===== GLOBAL STYLES ===== */
 body {
   margin: 0;
-  font-family: Arial, Helvetica, sans-serif;
-  background: #f4f6f8;
+  font-family: "Space Grotesk", "Segoe UI", sans-serif;
+  background: #f7f4ee;
+  color: #1e2a32;
 }
 
 h2, h3 {
@@ -11,11 +14,11 @@ h2, h3 {
 
 nav {
   padding: 12px;
-  background: #1e293b;
+  background: #0b1b2b;
 }
 
 nav a {
-  color: white;
+  color: #ffffff;
   margin-right: 15px;
   text-decoration: none;
   font-weight: 600;

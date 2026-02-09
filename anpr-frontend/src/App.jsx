@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Routes, Route } from "react-router-dom";
+import "./App.css";
 import Dashboard from "./pages/Dashboard";
 import VehicleLog from "./pages/VehicleLog";
 import DailyGraph from "./pages/DailyGraph";
