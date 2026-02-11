@@ -1,11 +1,17 @@
 import { useEffect, useState } from "react";
-import { getCameras, getDetections, getDailyCounts } from "../services/api";
+import { getCameras, getDetections, getDailyCounts, getStats } from "../services/api";
 import "./dashboard.css";
 
 function Dashboard() {
   const [dataCam1, setDataCam1] = useState([]);
   const [dataCam2, setDataCam2] = useState([]);
   const [cameras, setCameras] = useState([]);
+  const [stats, setStats] = useState({
+    total_in: 0,
+    today_in: 0,
+    total_out: 0,
+    today_out: 0
+  });
   const [error, setError] = useState("");
   const [lastUpdate, setLastUpdate] = useState(new Date());
   const [loading, setLoading] = useState(false);
@@ -114,6 +120,28 @@ function Dashboard() {
     }
   };
 
+  const fetchStats = async () => {
+    try {
+      console.log("📊 Fetching stats...");
+      const statsData = await getStats();
+      console.log("✅ Stats received:", statsData);
+      
+      // Ensure all values are numbers
+      const safeStats = {
+        total_in: Number(statsData.total_in) || 0,
+        today_in: Number(statsData.today_in) || 0,
+        total_out: Number(statsData.total_out) || 0,
+        today_out: Number(statsData.today_out) || 0
+      };
+      
+      console.log("✅ Safe stats:", safeStats);
+      setStats(safeStats);
+    } catch (err) {
+      console.error("FETCH STATS ERROR:", err);
+      setError(`Failed to fetch stats: ${err.message}`);
+    }
+  };
+
   const fetchDailyCounts = async () => {
     try {
       const res = await getDailyCounts(7);
@@ -125,12 +153,14 @@ function Dashboard() {
 
   useEffect(() => {
     fetchCameras();
+    fetchStats();
     fetchDailyCounts();
   }, []);
 
   useEffect(() => {
     const interval = setInterval(() => {
       fetchDailyCounts();
+      fetchStats();
     }, 10000);
 
     return () => clearInterval(interval);
@@ -156,7 +186,7 @@ function Dashboard() {
   const toCam2 = Math.min(pageCam2 * limit, paginationCam2.total || 0);
 
   const dailyMap = dailyCounts.reduce((acc, row) => {
-    const dayKey = new Date(row.day).toISOString().slice(0, 10);
+    const dayKey = typeof row.day === 'string' ? row.day.slice(0, 10) : new Date(row.day).toISOString().slice(0, 10);
     if (!acc[dayKey]) {
       acc[dayKey] = { day: dayKey, camera1: 0, camera2: 0, total: 0 };
     }
@@ -192,6 +222,33 @@ function Dashboard() {
       </header>
 
       {error && <div className="alert error">{error}</div>}
+
+      <section className="stats-grid">
+        <div className="stat-card">
+          <div className="stat-label">TOTAL VEHICLES</div>
+          <div className="stat-number">{(stats.total_in || 0) + (stats.total_out || 0)}</div>
+          <div className="stat-details">
+            <span>Today Entry: <strong>{stats.today_in || 0}</strong></span>
+            <span>Today Exit: <strong>{stats.today_out || 0}</strong></span>
+          </div>
+        </div>
+        <div className="stat-card stat-in">
+          <div className="stat-label">SALES IN - ENTRY</div>
+          <div className="stat-number">{stats.total_in || 0}</div>
+          <div className="stat-details">
+            <span>Today Entry: <strong>{stats.today_in || 0}</strong></span>
+            <span>Yesterday: Entry: <strong>{stats.today_in || 0}</strong> Exit: <strong>0</strong></span>
+          </div>
+        </div>
+        <div className="stat-card stat-out">
+          <div className="stat-label">SALES OUT FRONT - CLOSER</div>
+          <div className="stat-number">{stats.total_out || 0}</div>
+          <div className="stat-details">
+            <span>Today Exit: <strong>{stats.today_out || 0}</strong></span>
+            <span>Yesterday: Entry: <strong>0</strong> Exit: <strong>{stats.today_out || 0}</strong></span>
+          </div>
+        </div>
+      </section>
 
       {cameras.length > 0 && (
         <section className="camera-section">
@@ -233,7 +290,7 @@ function Dashboard() {
               ) : (
                 dailyRows.map((row) => (
                   <tr key={row.day}>
-                    <td className="time-cell">{new Date(row.day).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: '2-digit' })}</td>
+                    <td className="time-cell">{new Date(row.day + 'T00:00:00').toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: '2-digit' })}</td>
                     <td className="id-cell">{row.camera1}</td>
                     <td className="id-cell">{row.camera2}</td>
                     <td className="plate-cell">{row.total}</td>

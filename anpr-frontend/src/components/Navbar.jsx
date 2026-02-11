@@ -22,7 +22,7 @@ export default function Navbar() {
           display: open ? "flex" : "",
         }}>
           <Link to="/" style={styles.link}>Dashboard</Link>
-          <Link to="/vehicle-log" style={styles.link}>Vehicle Log</Link>
+          <Link to="/vehicle-log" style={styles.link}>In/Out-Reports</Link>
           <Link to="/daily-graph" style={styles.link}>Daily Graph</Link>
         </nav>
 

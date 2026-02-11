@@ -150,6 +150,72 @@
   margin-bottom: 18px;
 }
 
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.stat-card {
+  background: linear-gradient(135deg, #ffffff 0%, #fafaf8 100%);
+  border-radius: 14px;
+  padding: 18px 16px;
+  border: 1px solid #ece3d7;
+  box-shadow: 0 8px 20px rgba(30, 42, 50, 0.08);
+  transition: all 0.3s ease;
+}
+
+.stat-card:hover {
+  box-shadow: 0 12px 28px rgba(30, 42, 50, 0.12);
+  transform: translateY(-2px);
+}
+
+.stat-card.stat-in {
+  border-color: #a8d5ba;
+  background: linear-gradient(135deg, #f0fef6 0%, #e8fbf0 100%);
+}
+
+.stat-card.stat-out {
+  border-color: #f0a8a8;
+  background: linear-gradient(135deg, #fef0f0 0%, #fbe8e8 100%);
+}
+
+.stat-label {
+  font-size: 11px;
+  color: #7a8a95;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  margin-bottom: 12px;
+  font-weight: 600;
+}
+
+.stat-number {
+  font-size: 42px;
+  font-weight: 700;
+  color: #1e2a32;
+  line-height: 1.1;
+  margin-bottom: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.stat-details {
+  font-size: 13px;
+  color: #6a7a85;
+  line-height: 1.6;
+}
+
+.stat-details span {
+  display: block;
+  margin-bottom: 4px;
+}
+
+.stat-details strong {
+  color: #1e2a32;
+  font-weight: 600;
+  margin-left: 4px;
+}
+
 .search-row {
   display: grid;
   grid-template-columns: 1fr auto auto;
@@ -381,7 +447,176 @@
   padding: 18px 12px;
   color: #6a7a85;
 }
+/* ============================================
+   LOG PAGE STYLES
+============================================ */
 
+.btn-text {
+  background: none;
+  border: none;
+  color: #d9534f;
+  font-size: 13px;
+  cursor: pointer;
+  padding: 4px 8px;
+  font-weight: 500;
+}
+
+.btn-text:hover {
+  text-decoration: underline;
+}
+
+.btn-icon {
+  background: #ffffff;
+  border: 1px solid #d5e5dd;
+  color: #2c5f4b;
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 13px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 500;
+}
+
+.btn-icon:hover {
+  background: #f0f8f4;
+}
+
+.filter-grid-advanced {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+  margin: 16px 0;
+}
+
+.filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.filter-group label {
+  font-size: 12px;
+  color: #5a6a75;
+  font-weight: 600;
+}
+
+.logs-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.logs-table thead th {
+  background: linear-gradient(180deg, #f8fafb 0%, #f0f4f6 100%);
+  color: #4a5a68;
+  text-align: left;
+  padding: 12px 14px;
+  border-bottom: 2px solid #e0e8ed;
+  font-weight: 600;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.logs-table tbody tr {
+  border-bottom: 1px solid #f0f4f6;
+  transition: background 0.2s ease;
+}
+
+.logs-table tbody tr:hover {
+  background: #fafbfc;
+}
+
+.logs-table td {
+  padding: 14px;
+  vertical-align: middle;
+}
+
+.sno-cell {
+  color: #7a8a95;
+  font-weight: 500;
+}
+
+.event-badge {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+.event-badge.event-entry {
+  background: #e1f2ed;
+  color: #2c7a5f;
+}
+
+.event-badge.event-exit {
+  background: #ffe9e3;
+  color: #c65a3f;
+}
+
+.location-cell {
+  color: #5a6a75;
+  font-weight: 500;
+}
+
+.screenshot-cell {
+  padding: 8px 14px;
+}
+
+.screenshot-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.screenshot-img {
+  width: 80px;
+  height: 60px;
+  border-radius: 6px;
+  object-fit: cover;
+  border: 1px solid #e0e8ed;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.btn-download {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 18px;
+  opacity: 0.6;
+  transition: opacity 0.2s;
+}
+
+.btn-download:hover {
+  opacity: 1;
+}
+
+.screenshot-placeholder {
+  font-size: 11px;
+  color: #a8b5c2;
+  font-style: italic;
+}
+
+.sort-icon {
+  font-size: 10px;
+  margin-left: 4px;
+  color: #a8b5c2;
+}
+
+.footer-info {
+  color: #7a8a95;
+  font-size: 13px;
+}
+
+.page-btn.active {
+  background: #0b6b64;
+  color: #ffffff;
+  border-color: #0b6b64;
+}
 @keyframes rise {
   from {
     opacity: 0;

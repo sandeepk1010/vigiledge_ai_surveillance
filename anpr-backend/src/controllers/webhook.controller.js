@@ -2,11 +2,16 @@ const { pool } = require("../config/db");
 const { saveImage } = require("../services/image.service");
 
 /* ====================================
-   CAMERA IP MAPPING
+   CAMERA IP MAPPING - camera1=IN, camera2=OUT
 ==================================== */
 const CAMERA_IP_MAP = {
   "192.168.1.108": "camera1",
   "192.168.1.109": "camera2"
+};
+
+const CAMERA_TYPES = {
+  "camera1": "IN",
+  "camera2": "OUT"
 };
 
 async function handleWebhook(req, res) {

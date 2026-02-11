@@ -152,15 +152,36 @@ async function getStats(req, res) {
   try {
     const result = await pool.query(`
       SELECT
-        COALESCE(camera_name, 'unknown') AS camera,
+        camera_name,
         COUNT(*)::int AS total,
-        SUM((created_at::date = CURRENT_DATE)::int)::int AS today
+        SUM((created_at::date = CURRENT_DATE)::int)::int AS today_count
       FROM vehicle_detections
       GROUP BY camera_name
-      ORDER BY total DESC
+      ORDER BY camera_name
     `);
 
-    res.json(result.rows.map(r => ({ camera: r.camera, total: r.total, today: r.today })));
+    // Map camera names to their types (camera1=IN, camera2=OUT)
+    const stats = {
+      total_in: 0,
+      total_out: 0,
+      today_in: 0,
+      today_out: 0,
+      cameras: {}
+    };
+    
+    for (const row of result.rows) {
+      if (row.camera_name === 'camera1') {
+        stats.total_in = row.total;
+        stats.today_in = row.today_count;
+        stats.cameras.camera1 = { type: 'IN', ...row };
+      } else if (row.camera_name === 'camera2') {
+        stats.total_out = row.total;
+        stats.today_out = row.today_count;
+        stats.cameras.camera2 = { type: 'OUT', ...row };
+      }
+    }
+
+    res.json(stats);
   } catch (err) {
     console.error("API STATS ERROR:", err);
     res.status(500).json({ error: err.message });
@@ -179,14 +200,15 @@ async function getDailyCounts(req, res) {
       params.push(camera);
     }
 
+    // Convert timestamps to local timezone before casting to date so counts match local day
     const result = await pool.query(
       `
         SELECT
-          d.created_at::date AS day,
+          (d.created_at AT TIME ZONE 'Asia/Kolkata')::date AS day,
           COALESCE(d.camera_name, 'unknown') AS camera,
           COUNT(*)::int AS total
         FROM vehicle_detections d
-        WHERE d.created_at >= CURRENT_DATE - ($1::int * INTERVAL '1 day')
+        WHERE (d.created_at AT TIME ZONE 'Asia/Kolkata') >= (now() AT TIME ZONE 'Asia/Kolkata')::date - ($1::int * INTERVAL '1 day')
         ${filter}
         GROUP BY day, camera
         ORDER BY day DESC, camera ASC
