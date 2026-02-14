@@ -206,11 +206,11 @@ async function getDailyCounts(req, res) {
     const result = await pool.query(
       `
         SELECT
-          (d.created_at AT TIME ZONE 'Asia/Kolkata')::date AS day,
+          to_char((d.created_at AT TIME ZONE 'Asia/Kolkata')::date, 'YYYY-MM-DD') AS day,
           COALESCE(d.camera_name, 'unknown') AS camera,
           COUNT(*)::int AS total
         FROM vehicle_detections d
-        WHERE (d.created_at AT TIME ZONE 'Asia/Kolkata') >= (now() AT TIME ZONE 'Asia/Kolkata')::date - ($1::int * INTERVAL '1 day')
+        WHERE (d.created_at AT TIME ZONE 'Asia/Kolkata')::date >= (now() AT TIME ZONE 'Asia/Kolkata')::date - ($1::int * INTERVAL '1 day')
         ${filter}
         GROUP BY day, camera
         ORDER BY day DESC, camera ASC
