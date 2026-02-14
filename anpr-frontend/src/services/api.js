@@ -1,4 +1,5 @@
-const API = "http://localhost:5000";
+const host = (typeof window !== 'undefined' && window.location && window.location.hostname) ? window.location.hostname : 'localhost';
+export const API = process.env.REACT_APP_API_HOST || `http://${host}:5000`;
 
 export async function getLive() {
   const res = await fetch(API + "/api/live");
@@ -50,6 +51,15 @@ export async function searchDetections(query) {
   if (!res.ok) {
     throw new Error("Search failed");
   }
+  return res.json();
+}
+
+export async function fetchImage(detectionId, filename, imageType) {
+  const res = await fetch(`${API}/api/fetch-image`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ detectionId, filename, imageType })
+  });
   return res.json();
 }
 

@@ -1,4 +1,6 @@
 const { pool } = require("../config/db");
+const fs = require("fs");
+const path = require("path");
 
 async function getDetections(req, res) {
   try {
@@ -344,5 +346,146 @@ module.exports = {
   getDailyCounts,
   getCameras,
   searchDetections,
-  addImageToDetection
+  addImageToDetection,
+  fetchImage: fetchImage,
+  getRawWebhooks
 };
+
+// Attempt to fetch a missing image for a detection from configured camera hosts
+async function fetchImage(req, res) {
+  try {
+    const { detectionId, filename, imageType } = req.body;
+    if (!detectionId || !filename) {
+      return res.status(400).json({ error: 'Missing detectionId or filename' });
+    }
+
+    const detResult = await pool.query(
+      "SELECT camera_name, camera_ip, plate, created_at FROM vehicle_detections WHERE id = $1",
+      [detectionId]
+    );
+
+    if (detResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Detection not found' });
+    }
+
+    const det = detResult.rows[0];
+    const camera = det.camera_name;
+    const cameraIp = det.camera_ip;
+    const plate = det.plate || 'UNKNOWN';
+    const dateStr = det.created_at ? new Date(det.created_at).toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
+
+    const hostsRaw = process.env.CAMERA_IMAGE_HOSTS || null;
+    let hosts = {};
+    if (hostsRaw) {
+      try { hosts = JSON.parse(hostsRaw); } catch (e) { console.warn('Invalid CAMERA_IMAGE_HOSTS JSON'); }
+    }
+
+    const cameraHost = hosts[camera] || hosts[cameraIp] || null;
+    const candidates = [];
+    if (cameraHost) {
+      candidates.push(`${cameraHost}/${filename}`);
+      candidates.push(`${cameraHost}/${dateStr}/${plate}/${filename}`);
+      candidates.push(`${cameraHost}/uploads/${camera}/${dateStr}/${plate}/${filename}`);
+    }
+    if (cameraIp) {
+      const ipOnly = cameraIp.split(':')[0];
+      candidates.push(`http://${ipOnly}/${filename}`);
+      candidates.push(`http://${ipOnly}/uploads/${dateStr}/${plate}/${filename}`);
+    }
+
+    const { saveImageBuffer } = require("../services/image.service");
+
+    for (const url of candidates) {
+      try {
+        console.log('🔎 fetch candidate', url);
+        const resp = await fetch(url);
+        if (resp && resp.ok) {
+          const ct = resp.headers.get('content-type') || '';
+          if (ct.startsWith('image/')) {
+            const ab = await resp.arrayBuffer();
+            const buf = Buffer.from(ab);
+            const savedPath = saveImageBuffer({ camera, plate, filename, buffer: buf, date: dateStr });
+            await pool.query(
+              "INSERT INTO vehicle_images (detection_id, image_type, image_path) VALUES ($1, $2, $3)",
+              [detectionId, imageType || 'fetched', savedPath]
+            );
+            return res.json({ ok: true, url, savedPath });
+          }
+        }
+      } catch (e) {
+        console.log('fetch failed', e.message);
+      }
+    }
+
+    res.status(404).json({ error: 'No image found at candidate URLs', candidates });
+  } catch (err) {
+    console.error('FETCH IMAGE ERROR:', err);
+    res.status(500).json({ error: err.message });
+  }
+}
+
+// Returns recent raw webhook payloads saved under uploads
+async function getRawWebhooks(req, res) {
+  try {
+    const uploadsRoot = path.join(process.cwd(), "uploads");
+    const limit = Math.min(100, parseInt(req.query.limit || "50", 10));
+    const files = [];
+
+    async function walk(dir) {
+      const entries = await fs.promises.readdir(dir, { withFileTypes: true });
+      for (const ent of entries) {
+        const p = path.join(dir, ent.name);
+        if (ent.isDirectory()) {
+          await walk(p);
+        } else if (ent.isFile() && ent.name.startsWith("payload-") && ent.name.endsWith(".json")) {
+          files.push(p);
+        }
+      }
+    }
+
+    if (fs.existsSync(uploadsRoot)) {
+      await walk(uploadsRoot);
+    }
+
+    // Sort by mtime desc and limit
+    const filesWithStat = await Promise.all(files.map(async (f) => {
+      const s = await fs.promises.stat(f);
+      return { path: f, mtime: s.mtime.getTime() };
+    }));
+
+    filesWithStat.sort((a, b) => b.mtime - a.mtime);
+    const selected = filesWithStat.slice(0, limit);
+
+    const payloads = [];
+    for (const f of selected) {
+      try {
+        const raw = await fs.promises.readFile(f.path, "utf8");
+        const parsed = JSON.parse(raw);
+
+        // derive camera/plate/date from path
+        const parts = f.path.split(path.sep);
+        // expected uploads/<camera>/<date>/<plate>/payload-...json
+        const idx = parts.indexOf("uploads");
+        const camera = parts[idx + 1] || null;
+        const date = parts[idx + 2] || null;
+        const plate = parts[idx + 3] || null;
+
+        payloads.push({
+          file: f.path.replace(process.cwd() + path.sep, ""),
+          camera,
+          date,
+          plate,
+          payload: parsed,
+          timestamp: f.mtime
+        });
+      } catch (e) {
+        console.error("Failed to read payload file", f.path, e.message);
+      }
+    }
+
+    res.json({ ok: true, data: payloads });
+  } catch (err) {
+    console.error("GET RAW WEBHOOKS ERROR:", err);
+    res.status(500).json({ error: err.message });
+  }
+}
