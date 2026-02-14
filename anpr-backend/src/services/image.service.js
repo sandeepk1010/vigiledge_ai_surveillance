@@ -31,4 +31,21 @@ function saveImage({ camera, plate, type, base64 }) {
   return filePath;
 }
 
-module.exports = { saveImage };
+function saveImageBuffer({ camera, plate, filename, buffer, date }) {
+  const dateStr = date || new Date().toISOString().split("T")[0];
+  const dir = path.join(
+    "uploads",
+    camera,
+    dateStr,
+    plate || "UNKNOWN"
+  );
+
+  fs.mkdirSync(dir, { recursive: true });
+
+  const filePath = path.join(dir, filename);
+
+  fs.writeFileSync(filePath, buffer);
+  return filePath;
+}
+
+module.exports = { saveImage, saveImageBuffer };

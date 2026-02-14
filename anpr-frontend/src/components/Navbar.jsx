@@ -1,31 +1,16 @@
-import { useState } from "react";
 import { Link } from "react-router-dom";
 
-export default function Navbar() {
-  const [open, setOpen] = useState(false);
-
+export default function Navbar({ open, setOpen }) {
   return (
     <header style={styles.header}>
       <div style={styles.container}>
-        
         {/* LOGO */}
         <div style={styles.logo}>🚗 ANPR Control</div>
 
-        {/* HAMBURGER */}
+        {/* HAMBURGER - controls sidebar */}
         <div style={styles.menuBtn} onClick={() => setOpen(!open)}>
           ☰
         </div>
-
-        {/* NAV LINKS */}
-        <nav style={{
-          ...styles.nav,
-          display: open ? "flex" : "",
-        }}>
-          <Link to="/" style={styles.link}>Dashboard</Link>
-          <Link to="/vehicle-log" style={styles.link}>In/Out-Reports</Link>
-          <Link to="/daily-graph" style={styles.link}>Daily Graph</Link>
-        </nav>
-
       </div>
     </header>
   );
