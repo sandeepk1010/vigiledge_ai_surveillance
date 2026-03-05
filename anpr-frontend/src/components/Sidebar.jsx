@@ -27,6 +27,10 @@ export default function Sidebar({ open, setOpen }) {
           🚘 {open && "Vehicle Log"}
         </Link>
 
+        <Link to="/anpr-raw" style={styles.link}>
+          🧾 {open && "ANPR Raw"}
+        </Link>
+
         <Link to="/daily-graph" style={styles.link}>
           📈 {open && "Daily Graph"}
         </Link>

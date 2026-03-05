@@ -1,0 +1,43 @@
+{
+  "Picture": {
+    "CutoutPic": {
+      "PicName": "MH48AG4556-20260206122447-plate.jpg"
+    },
+    "Plate": {
+      "BoundingBox": [1099,1027,1435,1098],
+      "Channel": 0,
+      "Confidence": 81,
+      "IsExist": true,
+      "PlateColor": "Yellow",
+      "PlateNumber": "MH48AG4556",
+      "PlateType": "Unknown",
+      "Region": "",
+      "UploadNum": 47
+    },
+    "SnapInfo": {
+      "AccurateTime": "2026-02-06 12:24:47.468",
+      "AllowUser": false,
+      "AllowUserEndTime": "",
+      "DSTTune": 0,
+      "DefenceCode": "",
+      "DeviceID": "6d6c1152-a288-07fd-5f83-ceb54efca288",
+      "Direction": "Obverse",
+      "InCarPeopleNum": 0,
+      "LanNo": 1,
+      "OpenStrobe": false,
+      "SnapTime": "2026-02-06 12:24:47",
+      "TimeZone": 8
+    },
+    "Vehicle": {
+      "Speed": 0,
+      "VehicleBoundingBox": [840,64,2656,1296],
+      "VehicleColor": "White",
+      "VehicleSeries": "",
+      "VehicleSign": "Unknown",
+      "VehicleType": "Unknown"
+    },
+    "VehiclePic": {
+      "PicName": "MH48AG4556-20260206122447-vehicle.jpg"
+    }
+  }
+}

@@ -1,6 +1,6 @@
 const express = require("express");
 const router = express.Router();
-const { getDetections, getStats, getDailyCounts, getCameras, searchDetections, addImageToDetection } = require("../controllers/api.controller");
+const { getDetections, getStats, getDailyCounts, getCameras, searchDetections, addImageToDetection, fetchImage } = require("../controllers/api.controller");
 const { pool } = require("../config/db");
 
 // Exact routes first
@@ -8,6 +8,10 @@ router.get("/api/detections/search", searchDetections);
 router.get("/api/stats", getStats);
 router.get("/api/detections/daily", getDailyCounts);
 router.get("/api/cameras", getCameras);
+router.get("/api/raw-webhooks", require("../controllers/api.controller").getRawWebhooks);
+
+// Attempt to fetch a missing image from camera host (body: { detectionId, filename, imageType? })
+router.post("/api/fetch-image", fetchImage);
 
 // Test endpoint to create a detection for testing UI updates
 router.post("/api/test/detection", async (req, res) => {

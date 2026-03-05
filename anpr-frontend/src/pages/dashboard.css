@@ -442,6 +442,15 @@
   border: 1px dashed #e8dacb;
 }
 
+/* Collapsible rows for ANPRRaw */
+.collapse-toggle td { transition: background 0.18s ease; }
+.collapse-toggle:hover td { background: #fffaf2; }
+.details-panel-row td { padding: 0; }
+.details-panel-row { background: linear-gradient(180deg,#fffef7, #fffaf2); }
+.details-panel-row .btn { margin-top: 8px; }
+.simple-table th, .simple-table td { border-right: 0; }
+
+
 .empty-state {
   text-align: center;
   padding: 18px 12px;

@@ -4,6 +4,7 @@ import "./App.css";
 import Dashboard from "./pages/Dashboard";
 import VehicleLog from "./pages/VehicleLog";
 import DailyGraph from "./pages/DailyGraph";
+import ANPRRaw from "./pages/ANPRRaw";
 import Sidebar from "./components/Sidebar";
 import Navbar from "./components/Navbar";
 
@@ -22,10 +23,11 @@ function App() {
           transition: "0.3s"
         }}
       >
-        <Navbar />
+        <Navbar open={open} setOpen={setOpen} />
         <Routes>
           <Route path="/" element={<Dashboard />} />
           <Route path="/vehicle-log" element={<VehicleLog />} />
+            <Route path="/anpr-raw" element={<ANPRRaw />} />
           <Route path="/daily-graph" element={<DailyGraph />} />
         </Routes>
       </div>

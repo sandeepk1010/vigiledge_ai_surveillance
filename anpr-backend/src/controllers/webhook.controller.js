@@ -1,5 +1,8 @@
 const { pool } = require("../config/db");
 const { saveImage } = require("../services/image.service");
+const fs = require("fs");
+const path = require("path");
+const { saveImageBuffer } = require("../services/image.service");
 
 /* ====================================
    CAMERA IP MAPPING - camera1=IN, camera2=OUT
@@ -16,6 +19,10 @@ const CAMERA_TYPES = {
 
 async function handleWebhook(req, res) {
   try {
+    // If this payload has the camera-specific `Picture` format, delegate
+    if (req.body && req.body.Picture) {
+      return handleCameraPayload(req, res);
+    }
     const timestamp = new Date().toISOString();
     console.log("\n" + "=".repeat(70));
     console.log(`📸 WEBHOOK RECEIVED - ${timestamp}`);
@@ -38,11 +45,16 @@ async function handleWebhook(req, res) {
 
     console.log("🚗 PLATE:", plate);
 
-    const cameraIp =
+    let cameraIp =
       req.headers["x-forwarded-for"] ||
       req.socket.remoteAddress ||
       req.ip ||
       "";
+    // normalize IPv6-mapped IPv4 addresses and multiple forwarded entries
+    if (cameraIp && typeof cameraIp === 'string') {
+      cameraIp = cameraIp.split(',')[0].trim();
+      cameraIp = cameraIp.replace(/^::ffff:/, '');
+    }
 
     /* -------------------------------
        1. VEHICLE UPSERT
@@ -68,31 +80,55 @@ async function handleWebhook(req, res) {
     /* -------------------------------
        3. SAVE IMAGES
     --------------------------------*/
-    // Extract images from webhook payload
+    // Extract images from webhook payload. Support several shapes: direct base64 string,
+    // or object with `Content` or `Base64` fields.
     const images = req.body.images || {};
-    
-    for (const [imageType, base64Data] of Object.entries(images)) {
-      if (base64Data) {
-        try {
-          const filePath = saveImage({
-            camera,
-            plate,
-            type: imageType,
-            base64: base64Data
-          });
 
-          if (filePath) {
-            // Insert image record into database
-            await pool.query(
-              "INSERT INTO vehicle_images (detection_id, image_type, image_path) VALUES ($1, $2, $3)",
-              [detectionId, imageType, filePath]
-            );
-            console.log(`✅ Saved ${imageType} image: ${filePath}`);
-          }
-        } catch (imgErr) {
-          console.error(`❌ Error saving ${imageType} image:`, imgErr.message);
+    let savedImages = 0;
+    for (const [imageType, data] of Object.entries(images)) {
+      if (!data) continue;
+      try {
+        let base64String = null;
+
+        if (typeof data === 'string') {
+          base64String = data;
+        } else if (typeof data === 'object') {
+          // Common field names used by some cameras
+          base64String = data.Content || data.Base64 || data.base64 || data.content || null;
         }
+
+        // If the payload only includes a filename (PicName) skip here - camera-specific handler deals with that
+        if (!base64String) {
+          console.log(`ℹ️ No base64 content for image ${imageType}; skipping`);
+          continue;
+        }
+
+        const filePath = saveImage({ camera, plate, type: imageType, base64: base64String });
+        if (filePath) {
+          await pool.query(
+            "INSERT INTO vehicle_images (detection_id, image_type, image_path) VALUES ($1, $2, $3)",
+            [detectionId, imageType, filePath]
+          );
+          savedImages++;
+          console.log(`✅ Saved ${imageType} image: ${filePath}`);
+        }
+      } catch (imgErr) {
+        console.error(`❌ Error saving ${imageType} image:`, imgErr.message);
       }
+    }
+
+    // Save full raw payload to uploads for inspection
+    try {
+      const date = new Date().toISOString().split("T")[0];
+      const plateForPath = plate || "UNKNOWN";
+      const payloadDir = path.join("uploads", camera, date, plateForPath);
+      fs.mkdirSync(payloadDir, { recursive: true });
+      const now = new Date().toISOString().replace(/[:.]/g, "-");
+      const payloadPath = path.join(payloadDir, `payload-${now}.json`);
+      fs.writeFileSync(payloadPath, JSON.stringify(req.body, null, 2));
+      console.log(`💾 Saved raw payload: ${payloadPath}`);
+    } catch (pfErr) {
+      console.error("❌ Failed to save raw payload:", pfErr.message);
     }
 
     /* -------------------------------
@@ -115,7 +151,7 @@ async function handleWebhook(req, res) {
       );
     }
 
-    res.json({ ok: true, detectionId, imageCount: Object.keys(images).length });
+    res.json({ ok: true, detectionId, imageCount: savedImages });
   } catch (err) {
     console.error("🔥 WEBHOOK ERROR FULL:", err);
     res.status(500).json({ error: err.message });
@@ -145,11 +181,15 @@ async function handleCameraPayload(req, res) {
 
     console.log("🚗 PLATE:", plate);
 
-    const cameraIp =
+    let cameraIp =
       req.headers["x-forwarded-for"] ||
       req.socket.remoteAddress ||
       req.ip ||
       "";
+    if (cameraIp && typeof cameraIp === 'string') {
+      cameraIp = cameraIp.split(',')[0].trim();
+      cameraIp = cameraIp.replace(/^::ffff:/, '');
+    }
 
     console.log("📡 Camera IP:", cameraIp);
 
@@ -205,6 +245,77 @@ async function handleCameraPayload(req, res) {
 
       if (imageData) {
         try {
+          // If camera provides a PicName (filename) instead of base64 content,
+          // check if the file already exists under uploads and record it.
+          if (typeof imageData === 'object' && (imageData.PicName || imageData.Pic)) {
+            const picName = imageData.PicName || imageData.Pic;
+            const dateStr = (req.body?.Picture?.SnapInfo?.AccurateTime || req.body?.Picture?.SnapInfo?.SnapTime || new Date().toISOString()).split(" ")[0].replace(/:/g, "-");
+            const plateForPath = plate || "UNKNOWN";
+            const candidatePath = path.join("uploads", camera, dateStr, plateForPath, picName);
+            if (fs.existsSync(candidatePath)) {
+              await pool.query(
+                "INSERT INTO vehicle_images (detection_id, image_type, image_path) VALUES ($1, $2, $3)",
+                [detectionId, imageType, candidatePath]
+              );
+              console.log(`✅ Linked existing image for ${imageType}: ${candidatePath}`);
+              imageCount++;
+              continue; // move to next image mapping
+            } else {
+              console.log(`ℹ️ Image filename provided but file not found: ${candidatePath}`);
+              // Attempt to fetch from configured camera hosts or camera IP
+              try {
+                const hostsRaw = process.env.CAMERA_IMAGE_HOSTS || null;
+                let hosts = {};
+                if (hostsRaw) {
+                  try { hosts = JSON.parse(hostsRaw); } catch(e){ console.warn('Invalid CAMERA_IMAGE_HOSTS JSON'); }
+                }
+
+                const cameraHost = hosts[camera] || hosts[cameraIp] || null;
+                const candidates = [];
+                if (cameraHost) {
+                  candidates.push(`${cameraHost}/${picName}`);
+                  candidates.push(`${cameraHost}/${dateStr}/${plateForPath}/${picName}`);
+                  candidates.push(`${cameraHost}/uploads/${camera}/${dateStr}/${plateForPath}/${picName}`);
+                }
+                // try using camera IP directly
+                if (cameraIp) {
+                  const ipOnly = cameraIp.split(':')[0];
+                  candidates.push(`http://${ipOnly}/${picName}`);
+                  candidates.push(`http://${ipOnly}/uploads/${dateStr}/${plateForPath}/${picName}`);
+                }
+
+                let saved = false;
+                for (const url of candidates) {
+                  try {
+                    console.log('🔎 Trying fetch', url);
+                    const resp = await fetch(url);
+                    if (resp && resp.ok) {
+                      const contentType = resp.headers.get('content-type') || '';
+                      if (contentType.startsWith('image/')) {
+                        const ab = await resp.arrayBuffer();
+                        const buf = Buffer.from(ab);
+                        const savedPath = saveImageBuffer({ camera, plate: plateForPath, filename: picName, buffer: buf, date: dateStr });
+                        await pool.query(
+                          "INSERT INTO vehicle_images (detection_id, image_type, image_path) VALUES ($1, $2, $3)",
+                          [detectionId, imageType, savedPath]
+                        );
+                        console.log(`✅ Fetched and saved image from ${url} -> ${savedPath}`);
+                        imageCount++;
+                        saved = true;
+                        break;
+                      }
+                    }
+                  } catch (fetchErr) {
+                    console.log('fetch failed', fetchErr.message);
+                  }
+                }
+
+                if (saved) continue; // next image mapping
+              } catch (e) {
+                console.error('Error attempting to fetch remote image', e.message);
+              }
+            }
+          }
           // Handle base64 or Content field
           let base64String = imageData;
           if (typeof imageData === "object" && imageData.Content) {
@@ -247,6 +358,21 @@ async function handleCameraPayload(req, res) {
         "INSERT INTO events (vehicle_id,camera_id) VALUES ($1,$2)",
         [vehicleId, cameraId]
       );
+    }
+
+    // Save raw payload to uploads for inspection (camera-specific)
+    try {
+      const date = (req.body?.Picture?.SnapInfo?.AccurateTime || req.body?.Picture?.SnapInfo?.SnapTime || new Date().toISOString()).split(" ")[0].replace(/:/g, "-");
+      const dateStr = date.includes("-") ? date : new Date().toISOString().split("T")[0];
+      const plateForPath = plate || "UNKNOWN";
+      const payloadDir = path.join("uploads", camera, dateStr, plateForPath);
+      fs.mkdirSync(payloadDir, { recursive: true });
+      const now = new Date().toISOString().replace(/[:.]/g, "-");
+      const payloadPath = path.join(payloadDir, `payload-${now}.json`);
+      fs.writeFileSync(payloadPath, JSON.stringify(req.body, null, 2));
+      console.log(`💾 Saved camera payload: ${payloadPath}`);
+    } catch (pfErr) {
+      console.error("❌ Failed to save camera payload:", pfErr.message);
     }
 
     res.json({ ok: true, detectionId, imageCount });

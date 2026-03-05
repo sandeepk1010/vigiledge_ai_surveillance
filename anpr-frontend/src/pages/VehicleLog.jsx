@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { getDetections, searchDetections, getCameras } from "../services/api";
+import { getDetections, searchDetections, getCameras, API, fetchImage } from "../services/api";
 import "./dashboard.css";
 
 export default function VehicleLog() {
@@ -345,7 +345,7 @@ export default function VehicleLog() {
                         {imageList.length > 0 ? (
                           <div className="screenshot-group">
                             <img
-                              src={`http://localhost:5000${imageList[0]}`}
+                              src={`${API}${imageList[0]}`}
                               alt="vehicle"
                               className="screenshot-img"
                               onError={(e) => {
@@ -355,8 +355,66 @@ export default function VehicleLog() {
                             <button className="btn-download" title="Download">📥</button>
                           </div>
                         ) : (
-                          <div className="screenshot-placeholder">No image</div>
-                        )}
+                            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                              <div className="screenshot-placeholder">No image</div>
+                              <button
+                                className="btn small"
+                                onClick={async () => {
+                                  const fname = window.prompt('Enter filename to fetch (leave blank to auto-try):');
+                                  if (fname) {
+                                    try {
+                                      const r = await fetchImage(v.id, fname);
+                                      if (r && r.ok) {
+                                        await load(page);
+                                        alert('Fetched: ' + (r.savedPath || JSON.stringify(r)));
+                                      } else {
+                                        alert('Not found');
+                                      }
+                                    } catch (e) {
+                                      alert('Error');
+                                    }
+                                  } else {
+                                    // Auto-try common filename patterns
+                                    const dt = new Date(v.detected_at);
+                                    const pad = (n) => String(n).padStart(2, '0');
+                                    const Y = dt.getFullYear();
+                                    const M = pad(dt.getMonth() + 1);
+                                    const D = pad(dt.getDate());
+                                    const h = pad(dt.getHours());
+                                    const m = pad(dt.getMinutes());
+                                    const s = pad(dt.getSeconds());
+                                    const fileDate = `${Y}${M}${D}${h}${m}${s}`;
+                                    const plate = (v.plate || 'UNKNOWN').replace(/\s+/g, '_');
+                                    const candidates = [
+                                      `${plate}-${fileDate}-vehicle.jpg`,
+                                      `${plate}-${fileDate}-plate.jpg`,
+                                      `${plate}-${fileDate}-full.jpg`,
+                                      `${plate}-${fileDate}-vehicle.jpeg`,
+                                      `${plate}-${fileDate}-plate.jpeg`,
+                                      `${plate}-${fileDate}-full.jpeg`
+                                    ];
+                                    let found = false;
+                                    for (const c of candidates) {
+                                      try {
+                                        const r = await fetchImage(v.id, c);
+                                        if (r && r.ok) {
+                                          found = true;
+                                          await load(page);
+                                          alert('Fetched: ' + (r.savedPath || JSON.stringify(r)));
+                                          break;
+                                        }
+                                      } catch (e) {
+                                        // ignore
+                                      }
+                                    }
+                                    if (!found) alert('No image found for common patterns');
+                                  }
+                                }}
+                              >
+                                Fetch Image
+                              </button>
+                            </div>
+                          )}
                       </td>
                     </tr>
                   );
